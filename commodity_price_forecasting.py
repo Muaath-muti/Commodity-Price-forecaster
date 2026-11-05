@@ -21,6 +21,7 @@ Tabs in the GUI
     3. Trends & Year Comparison - year-over-year lines, all-commodity trend lines, yearly averages
 """
 
+import io  # FIX: needed so load_data can re-read uploaded files
 import os
 import sys
 import queue
@@ -133,11 +134,23 @@ def _std_name(col):
 
 
 def load_data(path):
-    """Read the CSV (handles the blank first row, the degree sign encoding and '1,212.00' strings)."""
+    """Read the CSV (handles the blank first row, the degree sign encoding and '1,212.00' strings).
+
+    `path` may be a file path OR a file-like object (e.g. a Streamlit upload / BytesIO / StringIO).
+    """
+    # FIX: a file-like object can only be read once. Read its bytes a single time so each
+    # encoding attempt below starts from the beginning instead of from an exhausted stream.
+    payload = None
+    if hasattr(path, "read"):
+        payload = path.read()
+        if isinstance(payload, str):
+            payload = payload.encode("utf-8")
+
     raw, last_err = None, None
     for enc in ("utf-8-sig", "cp1252", "latin-1"):
         try:
-            raw = pd.read_csv(path, header=None, dtype=str, encoding=enc, keep_default_na=False)
+            source = io.BytesIO(payload) if payload is not None else path
+            raw = pd.read_csv(source, header=None, dtype=str, encoding=enc, keep_default_na=False)
             break
         except UnicodeDecodeError as e:
             last_err = e
