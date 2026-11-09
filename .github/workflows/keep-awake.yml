@@ -1,0 +1,27 @@
+name: Keep Commodity Forecaster Awake
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Playwright and its browser
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Visit the app with a real browser session
+        run: python keep_awake.py
