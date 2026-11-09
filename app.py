@@ -37,7 +37,7 @@ from commodity_price_forecasting import (
 )
 
 APP_NAME = "Kimberly Market Analytics"
-APP_BUILD = "build-2026-11-05-c"
+APP_BUILD = "build-2026-11-05-d"
 PAGES = [
     "Dashboard", "Price Forecasts", "Model Comparison", "Model Insights",
     "Historical Data", "Trends & Seasonality", "Evaluation Checks",
@@ -305,27 +305,27 @@ def chart_comparison(res):
 def chart_insights(res):
     imp = res["importance"].tail(10)
     labels = [FRIENDLY.get(i, (i, ""))[0] for i in imp.index]
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(13, 4.8), gridspec_kw={"width_ratios": [1.1, 1]})
+    lh = res["lstm_hist"]
+    if lh:  # only draw the LSTM panel when the LSTM actually ran
+        fig, (a1, a2) = plt.subplots(1, 2, figsize=(13, 4.8), gridspec_kw={"width_ratios": [1.1, 1]})
+    else:
+        fig, a1 = plt.subplots(figsize=(9, 4.8))
+        a2 = None
     a1.barh(labels, imp.values, color="#2ca02c")
     for i, v in enumerate(imp.values):
         a1.text(v, i, f" {v * 100:.0f}%", va="center", fontsize=9)
     a1.set_xlabel("Importance (share of the model's decision)")
     a1.set_title("Random Forest - what drives the price?")
     a1.margins(x=.12)
-    lh = res["lstm_hist"]
-    if lh:
+    if a2 is not None:
         a2.plot(lh["loss"], label="Training error")
         if "val_loss" in lh:
             a2.plot(lh["val_loss"], label="Validation error")
         a2.set_yscale("log")
         a2.set_xlabel("epoch (training round)")
         a2.set_ylabel("loss (log scale)")
+        a2.set_title("LSTM learning curve (falling = learning)")
         a2.legend(fontsize=8)
-    else:
-        a2.text(.5, .5, "LSTM not run\n(TensorFlow not installed)", ha="center", va="center", color="grey")
-        a2.set_xticks([])
-        a2.set_yticks([])
-    a2.set_title("LSTM learning curve (falling = learning)")
     fig.tight_layout()
     return fig
 
@@ -530,8 +530,9 @@ def page_insights(ctx):
         for key in res["importance"].tail(10).index[::-1]:
             label, text = FRIENDLY.get(key, (key, "A feature used by the model."))
             st.markdown(f"**{label}** `[{key}]`  \n{text}")
-        st.markdown("**Learning curve** - training error should fall as the LSTM learns; "
-                    "a rising validation line means over-fitting.")
+        if res["lstm_hist"]:
+            st.markdown("**Learning curve** - training error should fall as the LSTM learns; "
+                        "a rising validation line means over-fitting.")
 
 
 def page_history(ctx):
